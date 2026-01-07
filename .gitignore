@@ -3,6 +3,38 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# cmake-build-
+build/
+out/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+
+# CMake auto-generated
+install_manifest.txt
+# compile_commands.json
+
+# Libs
+*.exe
+*.out
+*.app
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# Neovim cache
+.nvim/
+
+# Plugins (if use packer/lazy.nvim and etc.)
+~/.local/share/nvim/site/pack/packer/
+~/.local/state/nvim/
+~/.cache/nvim/
+
 # User-specific files
 *.rsuser
 *.suo
