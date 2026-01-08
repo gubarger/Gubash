@@ -7,8 +7,9 @@ add_executable(${PROJECT_NAME} ${TARGET_SOURCES})
 
 target_sources(${PROJECT_NAME} PRIVATE
   source/main.cpp
-  source/parser.cpp
-  source/laxer.cpp
-  source/executor.cpp
-  source/builtins.cpp
+  source/shell.cpp
+  source/utils/string.cpp
+  source/utils/allocator/bitmap.cpp
+  source/utils/allocator/routerallocator.cpp
+  source/utils/allocator/slaballocator.cpp
 )
