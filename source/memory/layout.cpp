@@ -38,6 +38,14 @@ namespace gubash::memory
   {
     uint8_t* p = gMemory;
 
+    auto alignPtr = [](uint8_t*& p, size_t align) 
+    {
+      uintptr_t x = reinterpret_cast<uintptr_t>(p);
+
+      x = (x + align - 1) & ~(align - 1);
+      p = reinterpret_cast<uint8_t*>(x);
+    };
+
     // Arena
     uint8_t* arenaMemory = p; // Raw memory for ArenaAllocator.
     p += sizeof(ArenaAllocator);
@@ -46,6 +54,7 @@ namespace gubash::memory
     p += ARENA_SIZE;
   
     // Slab32
+    alignPtr(p, alignof(void*));
     uint8_t* slab32Arena = p;
     p += SLAB32_COUNT * 32;
 
@@ -58,6 +67,7 @@ namespace gubash::memory
     gSlab32 = new (slab32Memory) SlabAllocator(slab32Arena, 32, SLAB32_COUNT, slab32Bitmap);
 
     // Slab64
+    alignPtr(p, alignof(void*));
     uint8_t* slab64Arena = p;
     p += SLAB64_COUNT * 64;
 
@@ -70,6 +80,7 @@ namespace gubash::memory
     gSlab64 = new (slab64Memory) SlabAllocator(slab64Arena, 64, SLAB64_COUNT, slab64Bitmap);
 
     // Slab128
+    alignPtr(p, alignof(void*));
     uint8_t* slab128Arena = p;
     p += SLAB128_COUNT * 128;
 
@@ -82,6 +93,7 @@ namespace gubash::memory
     gSlab128 = new (slab128Memory) SlabAllocator(slab128Arena, 128, SLAB128_COUNT, slab128Bitmap);
 
     // Slab1024
+    alignPtr(p, alignof(void*));
     uint8_t* slab1024Arena = p;
     p += SLAB1024_COUNT * 1024;
 

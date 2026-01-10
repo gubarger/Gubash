@@ -47,10 +47,21 @@ namespace gubash::memory
     }
 
     Block* n = static_cast<Block*>(ptr);
+
+    #ifdef DEBUG
+      uint8_t* p = reinterpret_cast<uint8_t*>(ptr);
+
+      if (p < arena_ || p >= arena_ + blockSize_ * blockCount_)
+      {
+        std::abort();
+      }
+    #endif // DEBUG
+
     uint32_t i = (reinterpret_cast<uint8_t*>(ptr) - arena_) / blockSize_;
 
     used_.Clear(i);
 
+    n->next = free_;
     free_ = n;
   }
 }

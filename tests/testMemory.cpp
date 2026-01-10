@@ -2,16 +2,20 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+
 #include "../source/memory/layout.h"
 #include "../source/memory/router.h"
 #include "../source/memory/arena.h"
 #include "../source/memory/slab.h"
 
+using namespace gubash::memory;
+
 class MemoryTest : public ::testing::Test 
 {
 protected:
-  void SetUp() override;    // Called before each test.
-  void TearDown() override; // Called after each test.
+  void SetUp() override;
+  void TearDown() override;
 };
 
 void MemoryTest::SetUp()
@@ -21,169 +25,200 @@ void MemoryTest::SetUp()
 
 void MemoryTest::TearDown()
 {
-  // TODO: Here you can add leak checks. I won't do this yet, ok?
-}
-
-// Tests
-TEST_F(MemoryTest, BasicAllocationDeallocation)
-{
-  // Test RouterAllocator
-  void* ptr1 = gubash::memory::RouterAllocator::Allocate(32);
-  ASSERT_NE(ptr1, nullptr) << "Allocation failed for 32 bytes";
-
-  gubash::memory::RouterAllocator::Deallocate(ptr1, 32);
-
-  void* ptr2 = gubash::memory::RouterAllocator::Allocate(64);
-  ASSERT_NE(ptr2, nullptr) << "Allocation failed for 64 bytes";
-
-  gubash::memory::RouterAllocator::Deallocate(ptr2, 64);
-
-  void* ptr3 = gubash::memory::RouterAllocator::Allocate(128);
-  ASSERT_NE(ptr3, nullptr) << "Allocation failed for 128 bytes";
-
-  gubash::memory::RouterAllocator::Deallocate(ptr3, 128);
-
-  void* ptr4 = gubash::memory::RouterAllocator::Allocate(1024);
-  ASSERT_NE(ptr4, nullptr) << "Allocation failed for 1024 bytes";
-
-  gubash::memory::RouterAllocator::Deallocate(ptr4, 1024);
-}
-
-// Edge case test.
-TEST_F(MemoryTest, BoundaryCases)
-{
-  // Size 0.
-  // void* ptr = gubash::memory::RouterAllocator::Allocate(0);
-
-  // Size > MAX_SIZE (abort).
-  // ASSERT_DEATH(gubash::memory::RouterAllocator::Allocate(2000), ".*");
-
-  // The size exactly matches the border.
-  void* ptr33 = gubash::memory::RouterAllocator::Allocate(33);
-  ASSERT_NE(ptr33, nullptr) << "Allocation failed for 33 bytes";
-
-  gubash::memory::RouterAllocator::Deallocate(ptr33, 33);
-
-  void* ptr65 = gubash::memory::RouterAllocator::Allocate(65);
-  ASSERT_NE(ptr65, nullptr) << "Allocation failed for 65 bytes";
-
-  gubash::memory::RouterAllocator::Deallocate(ptr65, 65);
-}
-
-// Multiple allocation test.
-TEST_F(MemoryTest, MultipleAllocations)
-{
-  const int count = 10;
-  void* pointers[count];
-
-  // Allocate more blocks.
-  for (int i = 0; i < count; ++i) 
+  if (gArena)
   {
-    pointers[i] = gubash::memory::RouterAllocator::Allocate(32);
-    ASSERT_NE(pointers[i], nullptr) << "Allocation failed at iteration " << i;
-  }
-
-  // Deallocate (in reverse order).
-  for (int i = count - 1; i >= 0; --i) 
-  {
-    gubash::memory::RouterAllocator::Deallocate(pointers[i], 32);
+    gArena->Reset();
   }
 }
 
-// Test ArenaAllocator
-TEST_F(MemoryTest, ArenaAllocator) 
+TEST_F(MemoryTest, ArenaBasicAllocation) 
 {
-  void* ptr1 = gubash::memory::gArena->Allocate(100);
-  ASSERT_NE(ptr1, nullptr) << "Arena allocation failed";
+  ASSERT_NE(gArena, nullptr);
 
-  void* ptr2 = gubash::memory::gArena->Allocate(200);
-  ASSERT_NE(ptr2, nullptr) << "Second arena allocation failed";
+  void* ptr1 = gArena->Allocate(100);
+  void* ptr2 = gArena->Allocate(200);
 
-  // Checking that the pointers are different.
-  ASSERT_NE(ptr1, ptr2) << "Arena returned same pointer for different allocations";
+  EXPECT_NE(ptr1, nullptr);
+  EXPECT_NE(ptr2, nullptr);
+  EXPECT_NE(ptr1, ptr2);
 
-  gubash::memory::gArena->Reset();
+  // Check: within the arena?
+  uint8_t* base = reinterpret_cast<uint8_t*>(gArena) + sizeof(ArenaAllocator);
+  EXPECT_GE(ptr1, base);
+  EXPECT_LT(ptr1, base + ARENA_SIZE);
 
-  void* ptr3 = gubash::memory::gArena->Allocate(50);
-  ASSERT_NE(ptr3, nullptr) << "Arena allocation failed after reset";
+  // Write and read data.
+  int* intPtr = static_cast<int*>(ptr1);
+  *intPtr = 42;
+  EXPECT_EQ(*intPtr, 42);
 }
 
-// Test SlabAllocator directly.
-TEST_F(MemoryTest, SlabAllocatorDirect) 
+TEST_F(MemoryTest, ArenaAlignment) 
 {
-  // Test slab32 with global ptr.
-  void* ptr1 = gubash::memory::gSlab32->Allocate();
-  ASSERT_NE(ptr1, nullptr) << "Slab32 allocation failed";
+  void* ptr1 = gArena->Allocate(1, 1);
+  void* ptr2 = gArena->Allocate(1, 16);
+  void* ptr3 = gArena->Allocate(1, 64);
 
-  void* ptr2 = gubash::memory::gSlab32->Allocate();
-  ASSERT_NE(ptr2, nullptr) << "Second slab32 allocation failed";
-  ASSERT_NE(ptr1, ptr2) << "Slab returned same pointer";
+  EXPECT_NE(ptr1, nullptr);
+  EXPECT_NE(ptr2, nullptr);
+  EXPECT_NE(ptr3, nullptr);
 
-  gubash::memory::gSlab32->Deallocate(ptr1);
-  gubash::memory::gSlab32->Deallocate(ptr2);
+  EXPECT_EQ(reinterpret_cast<uintptr_t>(ptr2) % 16, 0u);
+  EXPECT_EQ(reinterpret_cast<uintptr_t>(ptr3) % 64, 0u);
 }
 
-// Memory exhaustion test.
-TEST_F(MemoryTest, ExhaustionTest) {
-  // Exhaustion all blocks in slab32.
-  const uint32_t maxAllocations = gubash::memory::SLAB32_COUNT;
-  void* pointers[maxAllocations];
+TEST_F(MemoryTest, ArenaReset) 
+{
+  size_t initialUsed = gArena->Used();
 
-  for (uint32_t i = 0; i < maxAllocations; ++i) 
+  void* ptr1 = gArena->Allocate(1000);
+  EXPECT_GT(gArena->Used(), initialUsed);
+
+  gArena->Reset();
+  EXPECT_EQ(gArena->Used(), 0u);
+
+  void* ptr2 = gArena->Allocate(500);
+  EXPECT_NE(ptr2, nullptr);
+}
+
+TEST_F(MemoryTest, Slab32Allocation) 
+{
+  // Slab32
+  void* blocks[SLAB32_COUNT];
+ 
+  for (uint32_t i = 0; i < SLAB32_COUNT; ++i) 
   {
-    pointers[i] = gubash::memory::RouterAllocator::Allocate(32);
-    ASSERT_NE(pointers[i], nullptr) << "Allocation failed at " << i << "/" << maxAllocations;
+    blocks[i] = RouterAllocator::Allocate(32);
+    EXPECT_NE(blocks[i], nullptr);
+ 
+    // Check: can write the data?
+    memset(blocks[i], i % 256, 32);
   }
 
-  // WARNING: this is abort (exit programm).
-  // ASSERT_DEATH(gubash::memory::RouterAllocator::Allocate(32), ".*");
-
-  // Delete all.
-  for (uint32_t i = 0; i < maxAllocations; ++i) 
+  for (uint32_t i = 0; i < SLAB32_COUNT; ++i) 
   {
-    gubash::memory::RouterAllocator::Deallocate(pointers[i], 32);
-  }
-
-  void* ptr = gubash::memory::RouterAllocator::Allocate(32);
-  ASSERT_NE(ptr, nullptr) << "Allocation failed after freeing all blocks";
-  
-  gubash::memory::RouterAllocator::Deallocate(ptr, 32);
-}
-
-// Test alignment.
-TEST_F(MemoryTest, AlignmentTest) 
-{
-  // Verify that the pointers are aligned.
-  for (size_t size : {32, 64, 128, 1024}) 
-  {
-    void* ptr = gubash::memory::RouterAllocator::Allocate(size);
-    ASSERT_NE(ptr, nullptr) << "Allocation failed for size " << size;
-
-    uintptr_t address = reinterpret_cast<uintptr_t>(ptr);
-    const uintptr_t alignment = 8;
-
-    EXPECT_EQ(address % alignment, 0u) << "Pointer " << ptr << " is not aligned to " << alignment 
-      << " bytes for allocation size " << size;
-
-    gubash::memory::RouterAllocator::Deallocate(ptr, size);
+    RouterAllocator::Deallocate(blocks[i], 32);
   }
 }
 
-// Test reuse memory
-TEST_F(MemoryTest, ReuseTest)
+TEST_F(MemoryTest, Slab64Allocation) 
 {
-  std::set<void*> allocatedPointers;
+  void* blocks[SLAB64_COUNT];
 
-  for (int iteration = 0; iteration < 3; ++iteration) 
+  for (uint32_t i = 0; i < SLAB64_COUNT; ++i) 
   {
-    void* ptr = gubash::memory::RouterAllocator::Allocate(64);
-    ASSERT_NE(ptr, nullptr) << "Allocation failed at iteration " << iteration;
+    blocks[i] = RouterAllocator::Allocate(64);
+    EXPECT_NE(blocks[i], nullptr);
 
-    allocatedPointers.insert(ptr);
-    
-    gubash::memory::RouterAllocator::Deallocate(ptr, 64);
+    int* data = static_cast<int*>(blocks[i]);
+    *data = i * 10;
+    EXPECT_EQ(*data, i * 10);
   }
 
-  EXPECT_LE(allocatedPointers.size(), 3u) 
-    << "Expected memory reuse, but got too many unique pointers";
+  for (uint32_t i = 0; i < SLAB64_COUNT; ++i) 
+  {
+    RouterAllocator::Deallocate(blocks[i], 64);
+  }
+}
+
+TEST_F(MemoryTest, RouterAllocatorSizeNormalization) 
+{
+  EXPECT_EQ(RouterAllocator::Normalize(1), 32u);
+  EXPECT_EQ(RouterAllocator::Normalize(32), 32u);
+  EXPECT_EQ(RouterAllocator::Normalize(33), 64u);
+  EXPECT_EQ(RouterAllocator::Normalize(64), 64u);
+  EXPECT_EQ(RouterAllocator::Normalize(65), 128u);
+  EXPECT_EQ(RouterAllocator::Normalize(128), 128u);
+  EXPECT_EQ(RouterAllocator::Normalize(129), 1024u);
+  EXPECT_EQ(RouterAllocator::Normalize(1024), 1024u);
+
+  // TODO: Implementation of a large amount of data has not been implemented at the moment.
+  // Now - abort.
+  EXPECT_DEATH(RouterAllocator::Normalize(1025), "");
+}
+
+TEST_F(MemoryTest, MixedAllocations) 
+{
+  void* ptr32 = RouterAllocator::Allocate(10);    // 10 -> 32
+  void* ptr64 = RouterAllocator::Allocate(50);    // 50 -> 64
+  void* ptr128 = RouterAllocator::Allocate(100);  // 100 -> 128
+  void* ptr1024 = RouterAllocator::Allocate(500); // 500 -> 1024
+
+  EXPECT_NE(ptr32, nullptr);
+  EXPECT_NE(ptr64, nullptr);
+  EXPECT_NE(ptr128, nullptr);
+  EXPECT_NE(ptr1024, nullptr);
+
+  // Check: any pointers?
+  EXPECT_NE(ptr32, ptr64);
+  EXPECT_NE(ptr32, ptr128);
+  EXPECT_NE(ptr32, ptr1024);
+
+  RouterAllocator::Deallocate(ptr32, 10);
+  RouterAllocator::Deallocate(ptr64, 50);
+  RouterAllocator::Deallocate(ptr128, 100);
+  RouterAllocator::Deallocate(ptr1024, 500);
+}
+
+TEST_F(MemoryTest, ReuseDeallocatedBlocks) 
+{
+  void* ptr1 = RouterAllocator::Allocate(32);
+  void* ptr2 = RouterAllocator::Allocate(32);
+
+  int* p1 = static_cast<int*>(ptr1);
+  int* p2 = static_cast<int*>(ptr2);
+  *p1 = 0xDEADBEEF;
+  *p2 = 0xCAFEBABE;
+
+  RouterAllocator::Deallocate(ptr1, 32);
+  RouterAllocator::Deallocate(ptr2, 32);
+
+  void* ptr3 = RouterAllocator::Allocate(32);
+  void* ptr4 = RouterAllocator::Allocate(32);
+
+  int* p3 = static_cast<int*>(ptr3);
+  int* p4 = static_cast<int*>(ptr4);
+  *p3 = 42;
+  *p4 = 24;
+
+  EXPECT_EQ(*p3, 42);
+  EXPECT_EQ(*p4, 24);
+
+  RouterAllocator::Deallocate(ptr3, 32);
+  RouterAllocator::Deallocate(ptr4, 32);
+}
+
+TEST_F(MemoryTest, SlabExhaustion) 
+{
+  std::vector<void*> blocks;
+
+  for (uint32_t i = 0; i < SLAB32_COUNT; ++i) 
+  {
+    void* ptr = RouterAllocator::Allocate(32);
+    EXPECT_NE(ptr, nullptr);
+    blocks.push_back(ptr);
+  }
+ 
+  // abort.
+  EXPECT_DEATH(RouterAllocator::Allocate(32), "");
+
+  for (void* ptr : blocks) 
+  {
+    RouterAllocator::Deallocate(ptr, 32);
+  }
+}
+
+TEST_F(MemoryTest, MemoryCorruptionDetection) 
+{
+#ifdef DEBUG
+  void* validPtr = RouterAllocator::Allocate(32);
+ 
+  // Create incorrect pointer.
+  uint8_t* invalidPtr = reinterpret_cast<uint8_t*>(validPtr) - 100;
+
+  // abort.
+  EXPECT_DEATH(RouterAllocator::Deallocate(invalidPtr, 32), "");
+
+  RouterAllocator::Deallocate(validPtr, 32);
+#endif
 }

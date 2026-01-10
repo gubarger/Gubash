@@ -23,5 +23,4 @@ namespace gubash::memory
     size_t capacity_;
     size_t offset_;
   };
-  
 }

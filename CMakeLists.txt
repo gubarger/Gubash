@@ -29,6 +29,8 @@ add_executable(${PROJECT_NAME}
   source/memory/router.cpp
   source/memory/arena.cpp
   source/memory/layout.cpp
+
+  source/utils/fgstring.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -39,16 +41,28 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 if(BUILD_TESTS)
   add_executable(Gubash_tests
     tests/testMemory.cpp
+    tests/testString.cpp
 
     source/memory/layout.cpp
     source/memory/router.cpp
     source/memory/slab.cpp
     source/memory/arena.cpp
-    source/memory/bitmap.cpp
+
+    source/utils/fgstring.cpp
   )
 
   target_link_libraries(Gubash_tests PRIVATE gtest_main)
 
   enable_testing()
   add_test(NAME GubashTests COMMAND Gubash_tests)
+
+  find_program(VALGRIND valgrind)
+  if(VALGRIND)
+    add_test(NAME MemoryLeakTests
+      COMMAND valgrind
+      --leak-check=full
+      --error-exitcode=1
+      ./Gubash_tests
+    )
+  endif()
 endif()

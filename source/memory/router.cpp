@@ -9,22 +9,24 @@ namespace gubash::memory
 {
   void* RouterAllocator::Allocate(size_t size) noexcept
   {
-    if (size <= 32)
+    size = Normalize(size);
+
+    if (size == 32)
     {
       return slab32_->Allocate();
     }
 
-    if (size <= 64)
+    if (size == 64)
     {
       return slab64_->Allocate();
     }
 
-    if (size <= 128)
+    if (size == 128)
     {
       return slab128_->Allocate();
     }
 
-    if (size <= 1024)
+    if (size == 1024)
     {
       return slab1024_->Allocate();
     }
@@ -34,22 +36,24 @@ namespace gubash::memory
 
   void RouterAllocator::Deallocate(void* ptr, size_t size) noexcept
   {
-    if (size <= 32)
+    size = Normalize(size);
+
+    if (size == 32)
     {
       return slab32_->Deallocate(ptr);
     }
 
-    if (size <= 64)
+    if (size == 64)
     {
       return slab64_->Deallocate(ptr);
     }
 
-    if (size <= 128)
+    if (size == 128)
     {
       return slab128_->Deallocate(ptr);
     }
 
-    if (size <= 1024)
+    if (size == 1024)
     {
       return slab1024_->Deallocate(ptr);
     }

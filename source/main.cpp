@@ -1,16 +1,17 @@
 // Copyright (c) 2026 Gubarger. All Rights Reserved.
 
+#include <cstdio>
+
+#include "utils/fgstring.h"
 #include "memory/layout.h"
-#include "memory/router.h"
 
-int main() {
+int main()
+{
   gubash::memory::InitMemory();
+  gubash::utils::Fgstring str;
 
-  void* a = gubash::memory::RouterAllocator::Allocate(32);
-  gubash::memory::RouterAllocator::Deallocate(a, 32);
+  str.Append('Y');
+  str.Append("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeb", 900);
 
-  void* b = gubash::memory::gArena->Allocate(64);
-  gubash::memory::gArena->Reset();
-
-  return 0;
+  printf("size=%zu, empty=%d, str='%s'\n", str.Size(), str.Empty(), str.Cstr());
 }
